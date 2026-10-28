@@ -1,87 +1,120 @@
 # working_hours_qbid
 
-Script de Python que rellena automáticamente las horas de la **"Activitat diària del dossier"** en [qBID](https://www.empresaiformacio.org/sBid), la plataforma de prácticas FCT/Dual de Catalunya.
+Script en Python para rellenar las horas de la "Activitat diària del dossier" en qBID (https://www.empresaiformacio.org/sBid) sin tener que hacerlo día a día a mano.
 
-Inicia sesión, recorre los días desde la última fecha registrada hasta hoy y reparte las horas del día entre las actividades del plan, sin tener que tocar nada.
+Entra con tu usuario, recorre los días desde la fecha que le indiques hasta hoy y en cada uno reparte las horas entre las actividades del plan. Si un día ya tiene las horas puestas lo deja como está, y si tiene menos de las que toca lo corrige. Los fines de semana y festivos se los salta.
 
-## Qué hace
-
-- **Total exacto cada día:** reparte las horas (por defecto 5h) entre todos los campos del día, sean cuantos sean. Comprueba la suma antes y después de guardar.
-- **Reparto rotativo:** los campos con más tiempo cambian cada día, para que el reparto no sea siempre igual.
-- **Sin intervención:** inicia sesión con tus credenciales del `.env` y navega solo por la Agenda.
-- **Espera a la web, no al reloj:** cada paso espera a las respuestas HTTP de qBID en lugar de usar pausas fijas. Si hay un error HTTP o qBID muestra un aviso, se detiene.
-- **Respeta lo que ya está hecho:**
-  - deja como están los días que ya tienen las horas completas;
-  - corrige los que tienen menos;
-  - salta festivos y fines de semana;
-  - se para en los días futuros.
-- **Recuerda dónde se quedó:** al terminar, guarda el último día registrado en `FECHA_INICIO_STR`, así la siguiente ejecución sigue desde ahí. La fecha final es siempre hoy.
-- **Diagnóstico:** si algo falla, guarda una captura y el HTML de la página en `debug/`.
-
-## Requisitos
-
-- Python 3.10 o superior
-- Google Chrome (si no está instalado, Selenium descarga uno automáticamente)
-- Una cuenta de alumno en qBID
+Cuando termina, apunta en el propio script el último día que ha registrado, así la próxima vez empieza desde ahí.
 
 ## Instalación
 
-```bash
+Necesitas Python 3.10 o más reciente y Git. Chrome es recomendable, aunque si no lo tienes Selenium descarga uno la primera vez.
+
+En Windows puedes instalar lo que falte desde PowerShell:
+
+```powershell
+winget install --id Python.Python.3.13 -e
+winget install --id Git.Git -e
+winget install --id Google.Chrome -e
+```
+
+Después de instalar, cierra y vuelve a abrir PowerShell para que reconozca los comandos nuevos.
+
+### 1. Descargar el repositorio
+
+```powershell
 git clone https://github.com/mariorodriguezgo/working_hours_qbid.git
 cd working_hours_qbid
+```
+
+### 2. Crear el entorno virtual
+
+El entorno virtual (venv) es una carpeta donde se instalan las librerías solo para este proyecto, sin tocar el Python del sistema.
+
+```powershell
 python -m venv venv
 ```
 
-Activa el entorno virtual:
+### 3. Activarlo
+
+En Windows:
+
+```powershell
+.\venv\Scripts\Activate.ps1
+```
+
+En Linux o macOS:
 
 ```bash
-# Windows (PowerShell)
-.\venv\Scripts\Activate.ps1
-# Linux / macOS
 source venv/bin/activate
 ```
 
-Instala las dependencias:
+Sabrás que está activo porque aparece `(venv)` al principio de la línea. Hay que activarlo cada vez que abras una terminal nueva para usar el script.
 
-```bash
+Si Windows da un error de permisos al activarlo, ejecuta esto una vez y vuelve a intentarlo:
+
+```powershell
+Set-ExecutionPolicy -Scope CurrentUser RemoteSigned
+```
+
+### 4. Instalar las librerías
+
+Con el venv activo:
+
+```powershell
 pip install -r requirements.txt
 ```
 
-> En Windows, si `Activate.ps1` da un error de permisos, ejecuta antes `Set-ExecutionPolicy -Scope CurrentUser RemoteSigned`.
+Para comprobar que se han instalado bien:
 
-## Configuración
+```powershell
+python -c "import selenium, dotenv; print('OK')"
+```
 
-1. Copia el archivo de ejemplo y pon tus credenciales de qBID:
+### 5. Poner tus credenciales
 
-   ```bash
-   cp .env.example .env        # Windows: copy .env.example .env
-   ```
+Copia el archivo de ejemplo y ábrelo:
 
-   ```ini
-   QBID_USER=tu_usuario
-   QBID_PASSWD=tu_contraseña
-   ```
+```powershell
+copy .env.example .env
+notepad .env
+```
 
-   El `.env` está en `.gitignore` y nunca se sube al repositorio.
+En Linux o macOS es `cp .env.example .env` y lo editas con cualquier editor.
 
-2. Ajusta las constantes al principio de `fill_hours_qbid.py`:
+Rellena tu usuario y contraseña de qBID:
 
-   | Constante | Qué es |
-   |---|---|
-   | `HORAS_A_RELLENAR` | Horas por día. No puede superar las "Hores màximes" de tu conveni. |
-   | `FECHA_INICIO_STR` | Primer día a rellenar (`DD/MM/AAAA`). Se actualiza sola tras cada ejecución. |
+```ini
+QBID_USER=tu_usuario
+QBID_PASSWD=tu_contraseña
+```
+
+El archivo `.env` no se sube a GitHub (está en `.gitignore`).
+
+## Antes de la primera ejecución
+
+Abre `fill_hours_qbid.py`. Arriba del todo hay dos constantes que tienes que revisar:
+
+```python
+HORAS_A_RELLENAR = 5
+FECHA_INICIO_STR = "01/09/2026"
+```
+
+`FECHA_INICIO_STR` es el primer día que se va a rellenar, en formato DD/MM/AAAA. La primera vez ponlo tú a mano. Yo recomiendo empezar con un día de la semana actual, mirar en qBID que todo ha quedado bien y después ya poner la fecha real de inicio de las prácticas. A partir de ahí no hace falta tocarla, porque el script la actualiza solo al acabar. La fecha final no se configura, siempre es el día de hoy.
+
+`HORAS_A_RELLENAR` son las horas que se ponen cada día. El script no limita el número, pero qBID sí: cada conveni tiene unas horas máximas por día, que salen en la página de actividad diaria como "Hores màximes: 5H" (o 8H, según tu conveni). Puedes poner cualquier valor hasta ese máximo, en pasos de 15 minutos. Por ejemplo, con un máximo de 8H valen 5, 6, 6.5, 7.75 u 8. Si pones más de lo que permite tu conveni, el script se para en el primer día y te avisa sin guardar nada.
+
+El script antiguo solo funcionaba con 5 u 8 horas y a veces se quedaba en 4h 30min o 4h 45min. Ahora calcula el reparto según el número de actividades que tenga el día, así que la suma siempre es exacta.
 
 ## Uso
 
-```bash
+Con el venv activo y desde la carpeta del proyecto:
+
+```powershell
 python fill_hours_qbid.py
 ```
 
-Se abre Chrome, el script inicia sesión y va día a día mostrando en la terminal el reparto de cada día y el resultado de cada guardado. Al acabar, Chrome se cierra solo.
-
-**Consejo:** la primera vez, pon en `FECHA_INICIO_STR` un día reciente y comprueba en qBID que ha quedado bien antes de rellenar un rango largo.
-
-### Ejemplo de salida
+Se abre Chrome, inicia sesión y va pasando los días. En la terminal verás algo así:
 
 ```
 Iniciando QBid Automator: 5h por día
@@ -97,29 +130,25 @@ Automatización finalizada.
 FECHA_INICIO_STR actualizada a 28/10/2026.
 ```
 
-## Si algo falla
+Al terminar, Chrome se cierra solo.
 
-El script se detiene y guarda en `debug/<fecha_hora>/`:
+## Si falla
 
-- `motivo.txt`: qué falló y en qué URL;
-- `captura.png`: captura de pantalla;
-- `pagina*.html`: el HTML de la página y de cada frame.
+El script se para en cuanto algo no cuadra, por ejemplo si no puede entrar, si qBID no acepta el guardado o si la página no cambia de día. En ese caso crea una carpeta `debug/` con la fecha y hora, y dentro guarda una captura de pantalla, el HTML de la página y un `motivo.txt` con el error. Esos archivos sirven para ver qué ha pasado y adaptar el script si qBID cambia su web. Pueden tener datos tuyos, por eso tampoco se suben a GitHub.
 
-Con esos archivos se pueden ajustar los selectores si qBID cambia su web. La carpeta `debug/` contiene datos personales y no se sube a git.
+Errores habituales:
 
-| Error | Solución |
+| Mensaje | Qué hacer |
 |---|---|
-| `cannot find Chrome binary` | Actualiza el repo (`git pull`) o instala Chrome. |
-| `Login fallido` | Revisa usuario y contraseña en `.env`. |
+| `cannot find Chrome binary` | Haz `git pull` para tener la última versión, o instala Chrome. |
+| `Login fallido` | Revisa el usuario y la contraseña del `.env`. |
 | `supera las Hores màximes` | Baja `HORAS_A_RELLENAR` al máximo de tu conveni. |
-| `QBid rechazó el guardado: ...` | El texto es el aviso de qBID; normalmente horas de más o de menos. |
+| `QBid rechazó el guardado: ...` | Es el mensaje que da qBID, normalmente por horas de más o de menos. |
 
-## Cómo funciona
+## Detalles técnicos
 
-- Toda la web de qBID vive en dos iframes anidados: `jspContainer` → `contentmain`.
-- El script lee el log de red de Chrome (eventos `Network.*`) para saber cuándo ha terminado cada petición y con qué código HTTP.
-- La estructura de las páginas (selectores, funciones JS, peticiones) está documentada en [`docs/qbid_estructura.md`](docs/qbid_estructura.md).
+La web de qBID carga todo dentro de dos iframes (`jspContainer` y, dentro, `contentmain`). Para saber cuándo ha terminado de cargar cada paso, el script lee el registro de red de Chrome y espera a que acaben las peticiones, en vez de usar esperas fijas. También comprueba el código HTTP de las respuestas.
 
-## Aviso
+En `docs/qbid_estructura.md` están apuntados los selectores, las funciones JavaScript y las peticiones de qBID que usa el script.
 
-Proyecto personal sin relación con qBID ni con el Departament d'Educació. Úsalo bajo tu responsabilidad: las horas que registra deben corresponder a la actividad que has hecho de verdad, y es tu responsabilidad revisarlas. Si qBID cambia su web, puede que haya que actualizar los selectores.
+Es un proyecto personal y no tiene relación con qBID ni con el Departament d'Educació. Las horas que registres tienen que ser las que has hecho de verdad, así que revísalas.
