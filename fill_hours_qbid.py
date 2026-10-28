@@ -7,7 +7,6 @@ from selenium.common.exceptions import (
     StaleElementReferenceException,
     UnexpectedAlertPresentException,
 )
-from webdriver_manager.chrome import ChromeDriverManager
 from dotenv import load_dotenv
 from datetime import datetime, date, timedelta
 import json
@@ -583,7 +582,8 @@ if __name__ == "__main__":
     opciones_chrome.set_capability("goog:loggingPrefs", {"performance": "ALL"})
     # Si salta un alert inesperado, que Selenium no lo cierre solo: lo leemos nosotros
     opciones_chrome.set_capability("unhandledPromptBehavior", "ignore")
-    driver = webdriver.Chrome(service=Service(ChromeDriverManager().install()), options=opciones_chrome)
+    # Selenium Manager busca Chrome y su driver; si Chrome no está instalado, descarga uno
+    driver = webdriver.Chrome(service=Service(), options=opciones_chrome)
     monitor = MonitorRed(driver)
     ultimo_dia_registrado = None
 
