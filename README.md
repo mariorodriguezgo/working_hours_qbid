@@ -16,7 +16,6 @@ Inicia sesión, recorre los días desde la última fecha registrada hasta hoy y 
   - salta festivos y fines de semana;
   - se para en los días futuros.
 - **Recuerda dónde se quedó:** al terminar, guarda el último día registrado en `FECHA_INICIO_STR`, así la siguiente ejecución sigue desde ahí. La fecha final es siempre hoy.
-- **Diagnóstico:** si algo falla, guarda una captura y el HTML de la página en `debug/`.
 
 ## Requisitos
 
