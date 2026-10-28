@@ -407,6 +407,37 @@ def rellenar_dia(driver, monitor, posicion_inicial):
     return (posicion_inicial + 1) % n, True
 
 
+def volcar_debug(driver, motivo):
+    """Guarda captura y HTML de la página y de cada frame en debug/ para poder ajustar selectores."""
+    carpeta = os.path.join(os.path.dirname(os.path.abspath(__file__)), "debug",
+                           datetime.now().strftime("%Y%m%d_%H%M%S"))
+    try:
+        os.makedirs(carpeta, exist_ok=True)
+        with open(os.path.join(carpeta, "motivo.txt"), "w", encoding="utf-8") as f:
+            f.write(f"{motivo}\nURL: {driver.current_url}\n")
+        driver.switch_to.default_content()
+        driver.save_screenshot(os.path.join(carpeta, "captura.png"))
+
+        def volcar(ruta):
+            nombre = "pagina" + "".join(f"_frame{i}" for i in ruta)
+            with open(os.path.join(carpeta, nombre + ".html"), "w", encoding="utf-8") as f:
+                f.write(driver.page_source)
+            if len(ruta) >= 3:
+                return
+            for i in range(len(driver.find_elements(By.CSS_SELECTOR, "iframe, frame"))):
+                driver.switch_to.default_content()
+                for j in ruta:
+                    driver.switch_to.frame(j)
+                driver.switch_to.frame(i)
+                volcar(ruta + [i])
+
+        volcar([])
+        driver.switch_to.default_content()
+        print(f"Diagnóstico guardado en {carpeta} (envíalo para ajustar el script).")
+    except Exception as e:
+        print(f"No se pudo guardar el diagnóstico: {e}")
+
+
 def guardar_fecha_inicio(nueva_fecha):
     """Reescribe FECHA_INICIO_STR en este mismo archivo."""
     ruta = os.path.abspath(__file__)
@@ -458,15 +489,13 @@ try:
         entrar_frames(driver)
         fecha_actual = leer_fecha_pantalla(driver)
         if fecha_actual is None:
-            print("No se pudo leer la fecha de la página; se detiene por seguridad.")
-            break
+            raise RuntimeError("No se pudo leer la fecha de la página.")
         print(f"\n--- PROCESANDO: {fecha_actual.strftime('%d/%m/%Y')} ---")
         if fecha_actual > fecha_final:
             print("Se ha llegado al día de hoy.")
             break
         if ultima_fecha and fecha_actual <= ultima_fecha:
-            print("La página no ha avanzado de día; se detiene para no repetir registros.")
-            break
+            raise RuntimeError("La página no ha avanzado de día.")
         ultima_fecha = fecha_actual
 
         posicion_inicial, hay_que_guardar = rellenar_dia(driver, monitor, posicion_inicial)
@@ -475,8 +504,7 @@ try:
             if accion(monitor, lambda: driver.execute_script("save();"), "Guardar", requiere_respuesta=True):
                 ultimo_dia_guardado = fecha_actual
             else:
-                print("El guardado falló; se detiene para revisar.")
-                break
+                raise RuntimeError("El guardado falló.")
 
         if fecha_actual >= fecha_final:
             print("Día de hoy procesado.")
@@ -491,14 +519,14 @@ try:
         # Además de la red, confirma que la fecha de la página ha cambiado
         anterior = fecha_actual
         if not esperar_condicion(lambda: (entrar_frames(driver), leer_fecha_pantalla(driver))[1] not in (None, anterior)):
-            print("La fecha no cambió tras pulsar la flecha.")
-            break
+            raise RuntimeError("La fecha no cambió tras pulsar la flecha.")
 
     print("\n========================================================")
     print("Automatización finalizada.")
 
 except Exception as main_error:
     print(f"Error crítico: {main_error}")
+    volcar_debug(driver, str(main_error))
 
 finally:
     if ultimo_dia_guardado:
